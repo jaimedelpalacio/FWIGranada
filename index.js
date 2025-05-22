@@ -7,7 +7,7 @@ const gdal = require('gdal-async');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Bounding box de Granada (ajusta si lo necesitas)
+// Bounding box aproximado de Granada
 const GRANADA_BBOX = { 
   west: -4.41, 
   east: -2.50, 
@@ -15,12 +15,9 @@ const GRANADA_BBOX = {
   north: 38.00 
 };
 
-const WIDTH = 800;  // Puedes subirlo para más detalle (máximo ~2000)
-const HEIGHT = 800; // Igual que arriba
+const WIDTH = 800;
+const HEIGHT = 800;
 
-const UMBRAL_MODERADO = 11;
-
-// Verifica si un punto está dentro del bounding box de Granada
 function inGranada(lon, lat) {
   return (
     lon >= GRANADA_BBOX.west && lon <= GRANADA_BBOX.east &&
@@ -30,6 +27,8 @@ function inGranada(lon, lat) {
 
 app.get('/fwi/granada', async (req, res) => {
   try {
+    // Leer el umbral desde el query param (por defecto: 11)
+    const umbral = req.query.umbral ? parseFloat(req.query.umbral) : 11;
     // Fecha actual en formato YYYY-MM-DD
     const today = new Date().toISOString().slice(0,10);
     // WMS URL para EFFIS FWI
@@ -55,16 +54,15 @@ app.get('/fwi/granada', async (req, res) => {
     const fwiPoints = [];
     for (let px = 0; px < ds.rasterSize.x; px++) {
       for (let py = 0; py < ds.rasterSize.y; py++) {
-        // Convertir píxel a coordenadas lon/lat
         const lon = geoTransform[0] + px * geoTransform[1] + py * geoTransform[2];
         const lat = geoTransform[3] + px * geoTransform[4] + py * geoTransform[5];
-        // Filtrar por bounding box de Granada (opcional, ya viene recortado por WMS)
         if (!inGranada(lon, lat)) continue;
-        // Leer valor FWI
         const fwi = band.pixels.get(px, py);
-        if (fwi >= UMBRAL_MODERADO) {
+        if (fwi >= umbral) {
           let nivel = '';
-          if (fwi < 21) nivel = 'Moderado';
+          if (fwi < 5) nivel = 'Muy bajo';
+          else if (fwi < 11) nivel = 'Bajo';
+          else if (fwi < 21) nivel = 'Moderado';
           else if (fwi < 33) nivel = 'Alto';
           else if (fwi < 50) nivel = 'Muy alto';
           else nivel = 'Extremo';
@@ -76,6 +74,7 @@ app.get('/fwi/granada', async (req, res) => {
     res.json({ 
       fecha: today, 
       provincia: 'Granada', 
+      umbral_usado: umbral,
       total: fwiPoints.length, 
       puntos: fwiPoints 
     });
@@ -86,7 +85,7 @@ app.get('/fwi/granada', async (req, res) => {
 });
 
 app.get('/', (req, res) => {
-  res.send('Servicio FWI Granada - Usa /fwi/granada para resultados');
+  res.send('Servicio FWI Granada - Usa /fwi/granada?umbral=0 para mostrar todos los puntos');
 });
 
 app.listen(PORT, () => {
