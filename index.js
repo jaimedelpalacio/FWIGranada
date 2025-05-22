@@ -1,6 +1,3 @@
-// index.js
-// Microservicio FWI Granada - Bounding box simple y filtrado desde "Moderado" (FWI >= 11)
-
 const express = require('express');
 const axios = require('axios');
 const fs = require('fs');
@@ -10,13 +7,16 @@ const gdal = require('gdal-async');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Bounding box aproximado de Granada
+// Bounding box de Granada (ajusta si lo necesitas)
 const GRANADA_BBOX = { 
   west: -4.41, 
   east: -2.50, 
   south: 36.70, 
   north: 38.00 
 };
+
+const WIDTH = 800;  // Puedes subirlo para más detalle (máximo ~2000)
+const HEIGHT = 800; // Igual que arriba
 
 const UMBRAL_MODERADO = 11;
 
@@ -30,10 +30,10 @@ function inGranada(lon, lat) {
 
 app.get('/fwi/granada', async (req, res) => {
   try {
-    // Fecha actual en formato YYYYMMDD
-    const today = new Date().toISOString().slice(0,10).replace(/-/g,'');
-    // URL del raster FWI EFFIS/Copernicus para la fecha actual
-    const FWI_URL = `https://effis-gwf.jrc.ec.europa.eu/download/effis/fwi/EFFIS_FWI_Europe_${today}.tif`;
+    // Fecha actual en formato YYYY-MM-DD
+    const today = new Date().toISOString().slice(0,10);
+    // WMS URL para EFFIS FWI
+    const FWI_URL = `https://maps.effis.emergency.copernicus.eu/effis?LAYERS=ecmwf007.fwi&FORMAT=image/tiff&TRANSPARENT=true&SINGLETILE=false&SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&STYLES=&SRS=EPSG:4326&BBOX=${GRANADA_BBOX.west},${GRANADA_BBOX.south},${GRANADA_BBOX.east},${GRANADA_BBOX.north}&WIDTH=${WIDTH}&HEIGHT=${HEIGHT}&TIME=${today}`;
     const RASTER_PATH = path.join(__dirname, `fwi_${today}.tif`);
 
     // Descargar raster si no existe localmente
@@ -58,7 +58,7 @@ app.get('/fwi/granada', async (req, res) => {
         // Convertir píxel a coordenadas lon/lat
         const lon = geoTransform[0] + px * geoTransform[1] + py * geoTransform[2];
         const lat = geoTransform[3] + px * geoTransform[4] + py * geoTransform[5];
-        // Filtrar por bounding box de Granada
+        // Filtrar por bounding box de Granada (opcional, ya viene recortado por WMS)
         if (!inGranada(lon, lat)) continue;
         // Leer valor FWI
         const fwi = band.pixels.get(px, py);
