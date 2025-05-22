@@ -1,0 +1,14 @@
+{
+  "name": "microservicio-fwi-granada",
+  "version": "1.0.0",
+  "description": "Microservicio para exponer puntos de riesgo de incendio forestal en Granada a partir del FWI de EFFIS/Copernicus",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "axios": "^1.6.7",
+    "express": "^4.19.2",
+    "gdal-async": "^3.7.1"
+  }
+}
